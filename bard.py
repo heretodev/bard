@@ -45,7 +45,7 @@ def secure_hash_filepath_py3(filepath):
 		return gfg.digest()
 
 secure_hash_filepath=secure_hash_filepath_shell
-if(subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", filepath], capture_output=True).returncode < 0):
+if(subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", __file__], capture_output=True).returncode < 0):
 	secure_hash_filepath=secure_hash_filepath_py3
 
 def secure_hash(s):
