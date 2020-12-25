@@ -1,5 +1,3 @@
-from PIL import Image
-import imagehash
 import json
 import os
 import shutil
@@ -9,28 +7,52 @@ import base64
 import argparse
 import math
 import subprocess
-from pathlib import Path # Python3.5 onward (for progress bar in import)
-from tqdm import tqdm # progress bar
+import binascii
+
+
+#optional stuff
+#from PIL import Image
+#import imagehash
+#from pathlib import Path # Python3.5 onward (for progress bar in import)
+#from tqdm import tqdm # progress bar
 
 HASH_SUBDIR_LEN = 3
 MODHASH_SUBDIR_LEN = 3
 MODDIR = "mod"
+SECURE_HASH_LEN=256
 IMAGE_EXTENSIONS = [".jpg", ".png", ".jpeg", ".bmp", ".pgm", ".ppm", ".tiff"]
 
 ### HASH COMPUTATION FUNCTIONS: 
-def secure_hash_filepath(filepath):
-	process = subprocess.Popen(["b2sum", "-l", "256", "-b", filepath], stdout=subprocess.PIPE)
-	line = process.stdout.readline()
-	for ind,ch in enumerate(line):
-		if ((ch == ord(" ")) or (ch == ord("\n"))):
-			hash = line[0:ind]
-			return base64.b64encode(hash).decode("ascii")
+def secure_hash_filepath_shell(filepath):
+	completed_process = subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", filepath], capture_output=True)
+	completed_process.check_returncode()
+			
+	line=completed_process.stdout
+	if(len(line) < (2*SECURE_HASH_LEN//8)):
+		return secure_hash_filepath_py3(filepath)
+	else:
+		hsh=binascii.unhexlify(line[0:64])
+		base64.b32encode(hsh).decode("ascii")
+
+def secure_hash_filepath_py3(filepath):
+	with open(filepath,'rb') as fo:
+		gfg = hashlib.blake2b() # need to create fresh for each hash
+		while True:
+			data = file_object.read(chunk_size)
+			if not data:
+				break
+			gfg.update(s)
+		return gfg.digest()
+
+secure_hash_filepath=secure_hash_filepath_shell
+if(subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", filepath], capture_output=True).returncode < 0):
+	secure_hash_filepath=secure_hash_filepath_py3
 
 def secure_hash(s):
 	gfg = hashlib.blake2b() # need to create fresh for each hash
 	gfg.update(s)
 	hash = gfg.digest()
-	return base64.b64encode(hash).decode("ascii").replace('/', '')
+	return base64.b32encode(hash).decode("ascii")
 
 def compute_modhash(path):
 	canonical_device_id=""#TODO: identify_hard_drive_hardware_device_identifier #bard/path_identifier.py ...the windows code isn't finished but I rmemeber it was possible to find one that worked cross platform.
