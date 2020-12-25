@@ -41,32 +41,9 @@ def compute_modhash(path):
 	modhash = secure_hash(modstr.encode('utf-8'))
 	return modhash
 
-def compute_image_hash(f, ext):
-	if (ext in IMAGE_EXTENSIONS):
-		img = Image.open(f)
-		hash = imagehash.dhash(img)
-		hash = "%s" % hash
-		return hash
-	else:
-		print("not an image!")
-		return 0
+
 
 def compute_content_hash(f, ext):
-# filetypes that aren't images for future consideration:
-# vector: .svg (technically an image type but not pixelized for image hash)
-# videos: .mp4, .webm
-# plaintext: .txt, .csv, .yaml/.yml, .xml, .json, .conf
-# compiled text: .pdf,
-# code: .kdev*, .cpp, .h, .hpp, .c, .cc, .py, .sh, .bat, .m, Makefile/README(.md, .rst), CMakeLists.txt, .git
-# documents: .odt, .xls, .xlxs, .doc, .docx, 
-# latex: .tex, .bib, .aux, .bbl, .bst, .sty
-# web: .html, .css, .php, 
-# types that probably shouldn't be hashed: (.o, .pyc, .a, .so*, .obj)
-# linked exe: .bin, .exe
-# pem: .pem
-# keys: .gpg, .pub
-# disk images: .iso
-# archives: .tar, .tar.gz, .tgz, .zip, .h5
 	hash = secure_hash_filepath(f)
 	return hash
 
@@ -298,4 +275,39 @@ if __name__ == "__main__":
 		create_symlink_file_tree_from_db(mountdir, dbdir)
 	elif(fingerprint):
 		do_fingerprint(dbdir)
+
+
+
+
+
+########## METADATA EXTENSIONS
+
+
+def compute_image_hash(f, ext):
+# filetypes that aren't images for future consideration:
+# vector: .svg (technically an image type but not pixelized for image hash)
+# videos: .mp4, .webm
+# plaintext: .txt, .csv, .yaml/.yml, .xml, .json, .conf
+# compiled text: .pdf,
+# code: .kdev*, .cpp, .h, .hpp, .c, .cc, .py, .sh, .bat, .m, Makefile/README(.md, .rst), CMakeLists.txt, .git
+# documents: .odt, .xls, .xlxs, .doc, .docx, 
+# latex: .tex, .bib, .aux, .bbl, .bst, .sty
+# web: .html, .css, .php, 
+# types that probably shouldn't be hashed: (.o, .pyc, .a, .so*, .obj)
+# linked exe: .bin, .exe
+# pem: .pem
+# keys: .gpg, .pub
+# disk images: .iso
+# archives: .tar, .tar.gz, .tgz, .zip, .h5
+	if (ext in IMAGE_EXTENSIONS):
+		img = Image.open(f)
+		hash = imagehash.dhash(img)
+		hash = "%s" % hash
+		return hash
+	else:
+		print("not an image!")
+		return 0
+
+
+
 
