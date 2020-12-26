@@ -147,7 +147,9 @@ def update_file_entry(file_path, dbdir, same_content_hash_overwrite_with_new = T
 	# info from file: all metadata is indexed by content hash. (hash, other filenames, modhash)
 	return modhash, "%s" % hash
 
-def import_db_dir(importdir, progress_bar = None, total_files = 0, display_recursive_progress = True):
+
+
+def import_db_dir(dbdir,importdir, progress_bar = None, total_files = 0, display_recursive_progress = True):
 	if (display_recursive_progress) and (total_files == 0):
 		total_files = len([path for path in Path(importdir).rglob('*')])
 		progress_bar = tqdm(range(total_files), desc="Importing...", unit=" files")
@@ -165,7 +167,7 @@ def import_db_dir(importdir, progress_bar = None, total_files = 0, display_recur
 		#print('recursing to dir:', d)
 		if display_recursive_progress:
 			progress_bar.update(1) # Note: Total files glob counts directories as files, so recursing increases the processed count
-		progress_bar = import_db_dir(d, progress_bar, total_files)
+		progress_bar = import_db_dir(dbdir,d, progress_bar, total_files)
 	return progress_bar
 
 ### SYMLINK FUNCTIONS: only load db map of modhash->content hash for symlink.
@@ -179,8 +181,7 @@ def load_db_from_mod(db_mod_dir):
 				db[modhash] = hash
 	return db
 
-def create_symlink_file_tree_from_db(mountdir, dbdir):
-	dbdir = os.path.abspath(dbdir)
+def create_symlink_file_tree_from_db(dbdir, mount):
 	dbmoddir = os.path.join(dbdir, MODDIR)
 	db = load_db_from_mod(dbmoddir)
 	if not (os.path.exists(mountdir)):
@@ -211,7 +212,7 @@ def create_symlink_file_tree_from_db(mountdir, dbdir):
 			src_path = os.path.join(db_hash_dir, hash + ext)
 			os.symlink(src_path, dst_path)
 
-def do_fingerprint(dbdir):
+def do_fingerprint(dbdir,types):
 	modhash_files = len([path for path in Path(os.path.join(dbdir, MODDIR)).rglob('*')])
 	total_files = modhash_files - 1
 	progress_bar = tqdm(range(total_files), desc="Fingerprinting...", unit=" files")
@@ -238,34 +239,65 @@ def do_fingerprint(dbdir):
 		progress_bar.update(1) # update for subdirectory count from glob total
 
 ### BARD INPUTS:
-def parse_bard_args():
+
+def ensure_db_dir(dbdir1,makeit):
+	dbdir=os.path.join(dbdir1,".bard")
+	dbmoddir = os.path.join(dbdir, MODDIR)
+	if not (os.path.exists(dbdir)):
+		if(makeit):
+			print("Directory %s does not contain a .bard directory" % (dbdir))
+			print("Making it...")
+			os.makedirs(dbdir)
+			os.makedirs(dbmoddir)
+		else:
+			raise Exception("Directory %s does not contain a .bard directory" % (dbdir))
+	return dbdir
+
+
+def import_cmd(args):
+	dbdir=ensure_db_dir(args.db,True)
+
+	for impdir in args.targets:
+		impdir=os.path.abspath(impdir)
+		import_db_dir(dbdir,impdir)
+
+
+def mount_cmd(args):
+	dbdir=ensure_db_dir(args.db,False)
+	create_symlink_file_tree_from_db(dbdir, args.mountdir)
+
+def fingerprint_cmd(args):
+	dbdir=ensure_db_dir(args.db,False)
+	do_fingerprint(dbdir,args.type)
+
+
+def bard_main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument("-i", "--importdir", type=str, help="import directory")
-	parser.add_argument("-d", "--databasedir", type=str, help="database (.bard) directory")
-	parser.add_argument("-m", "--mountdir", type=str, help="create symlink directory structure pointing to bard files")
-	parser.add_argument("-f", "--fingerprint", help="compute and store image content hashes to metadata json in bard imported files")
+	base_parser = argparse.ArgumentParser(add_help=False)
+	base_parser.add_argument("--db","-d",type=str,default=os.getcwd(),help="the directory containing the database (.bard) dir")
+	subparsers = parser.add_subparsers(dest="cmd")
+
+	import_parser=subparsers.add_parser('import', help='import files and directories into bard',parents=[base_parser])
+	import_parser.add_argument('targets', type=str,help='the files and folders to import',nargs='+')
+	import_parser.set_defaults(cmdfunc=import_cmd)
+
+	mount_parser=subparsers.add_parser('ln', help='mount bard files into a symlink',parents=[base_parser])
+	mount_parser.add_argument('mountdir', help='The target directory to make a symlink into')
+	mount_parser.set_defaults(cmdfunc=mount_cmd)
+	
+	fingerprint_parser=subparsers.add_parser("fingerprint",help="fingerprint files inside bard based on content",parents=[base_parser])
+	fingerprint_parser.add_argument("--type","-t",action='append',default='all',choices=['all','image'],help="the type of fingerprinting to do")
+	fingerprint_parser.set_defaults(cmdfunc=fingerprint_cmd)
+
+	#parser.add_argument("-f", "--fingerprint", help="compute and store image content hashes to metadata json in bard imported files")
 	args = parser.parse_args()
+	if(args.cmd is None):
+		parser.print_help()
+	else:
+		return args.cmdfunc(args)
 
-	mountdir = ''
-	if not(args.mountdir is None):
-		mountdir = args.mountdir
 
-	fingerprint = False
-	if not(args.fingerprint is None):
-		fingerprint = True
-
-	importdir = None
-	if (args.importdir is None) and (mountdir == '') and (not fingerprint):
-		print("Error! import directory required!")
-		import sys
-		sys.exit()
-	if not (args.importdir is None):
-		importdir = os.path.abspath(args.importdir)
-
-	dbdir = '.bard'
-	if not(args.databasedir is None):
-		dbdir = args.databasedir
-	return importdir,dbdir,mountdir,fingerprint
+	
 
 # Future Feature Ideas:
 # Threading w/subprocess
@@ -284,19 +316,7 @@ def parse_bard_args():
 # fingerprint runs image content hash on all bard images and records in metadata json.
 # Can always optionally specify .bard directory with -d
 if __name__ == "__main__":
-	importdir,dbdir,mountdir,fingerprint = parse_bard_args()
-
-	dbmoddir = os.path.join(dbdir, MODDIR)
-	if not (os.path.exists(dbdir)):
-		os.makedirs(dbdir)
-		os.makedirs(dbmoddir)
-
-	if (not (importdir is None) and (mountdir == "")):
-		import_db_dir(importdir)
-	elif not (mountdir == ""):
-		create_symlink_file_tree_from_db(mountdir, dbdir)
-	elif(fingerprint):
-		do_fingerprint(dbdir)
+	bard_main()
 
 
 
