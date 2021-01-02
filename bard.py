@@ -15,6 +15,7 @@ import binascii
 #import imagehash
 #from pathlib import Path # Python3.5 onward (for progress bar in import)
 #from tqdm import tqdm # progress bar
+#TODO:   Confirm that if a file into the content is interrupted that the corrupted entry is not written.
 
 HASH_SUBDIR_LEN = 3
 MODHASH_SUBDIR_LEN = 3
@@ -42,7 +43,7 @@ def secure_hash_filepath_py3(filepath):
 			if not data:
 				break
 			gfg.update(s)
-		return gfg.digest()
+		return base64.b32encode(gfg.digest()).decode("ascii")
 
 secure_hash_filepath=secure_hash_filepath_shell
 if(subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", __file__], capture_output=True).returncode < 0):
@@ -118,6 +119,7 @@ def update_file_entry(file_path, dbdir, same_content_hash_overwrite_with_new = T
 	# Copy file named as content hash + extension if it doesn't exist or it's old
 	update_metadata = False
 	db_copy_path = os.path.join(db_hash_dir, ("%s" % hash) + ext)
+	#bug here 
 	if not os.path.exists(db_copy_path) or (same_content_hash_overwrite_with_new and (len(metadata)) and (modhash != metadata["modhash"])):
 		# mod time updated: generate fresh content hash
 		if(len(metadata) and (modhash != metadata["modhash"])):
