@@ -1,14 +1,11 @@
 import json
 import os
 import shutil
-import hashlib
 import datetime
-import base64
 import argparse
 import math
-import subprocess
-import binascii
-
+import shutil
+import bard.hash
 
 #optional stuff
 #from PIL import Image
@@ -16,44 +13,10 @@ import binascii
 #from pathlib import Path # Python3.5 onward (for progress bar in import)
 #from tqdm import tqdm # progress bar
 #TODO:   Confirm that if a file into the content is interrupted that the corrupted entry is not written.
+#TODO: allow tqdm on import optional otherwise fallback.
+#TODO: allow threading iff filelock is enabled.
 
-HASH_SUBDIR_LEN = 3
-MODHASH_SUBDIR_LEN = 3
-MODDIR = "mod"
-SECURE_HASH_LEN=256
 IMAGE_EXTENSIONS = [".jpg", ".png", ".jpeg", ".bmp", ".pgm", ".ppm", ".tiff"]
-
-### HASH COMPUTATION FUNCTIONS: 
-def secure_hash_filepath_shell(filepath):
-	completed_process = subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", filepath], capture_output=True)
-	completed_process.check_returncode()
-			
-	line=completed_process.stdout
-	if(len(line) < (2*SECURE_HASH_LEN//8)):
-		return secure_hash_filepath_py3(filepath)
-	else:
-		hsh=binascii.unhexlify(line[0:64])
-		base64.b32encode(hsh).decode("ascii")
-
-def secure_hash_filepath_py3(filepath):
-	with open(filepath,'rb') as fo:
-		gfg = hashlib.blake2b() # need to create fresh for each hash
-		while True:
-			data = file_object.read(chunk_size)
-			if not data:
-				break
-			gfg.update(s)
-		return base64.b32encode(gfg.digest()).decode("ascii")
-
-secure_hash_filepath=secure_hash_filepath_shell
-if(subprocess.run(["b2sum", "-l", str(SECURE_HASH_LEN), "-b", __file__], capture_output=True).returncode < 0):
-	secure_hash_filepath=secure_hash_filepath_py3
-
-def secure_hash(s):
-	gfg = hashlib.blake2b() # need to create fresh for each hash
-	gfg.update(s)
-	hash = gfg.digest()
-	return base64.b32encode(hash).decode("ascii")
 
 def compute_modhash(path):
 	canonical_device_id=""#TODO: identify_hard_drive_hardware_device_identifier #bard/path_identifier.py ...the windows code isn't finished but I rmemeber it was possible to find one that worked cross platform.
@@ -61,13 +24,11 @@ def compute_modhash(path):
 	mtime = os.path.getmtime(path)
 	mtime_utc = datetime.datetime.utcfromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
 	modstr = canonical_device_id+"|"+canonical_path_in_device+"|"+mtime_utc
-	modhash = secure_hash(modstr.encode('utf-8'))
+	modhash = bard.hash.secure_hash(modstr.encode('utf-8'))
 	return modhash
 
-
-
 def compute_content_hash(f, ext):
-	hash = secure_hash_filepath(f)
+	hash = bard.hash.secure_hash_filepath(f)
 	return hash
 
 ### METADATA FUNCTIONS: ONE UNIQUE PER CONTENT HASH
