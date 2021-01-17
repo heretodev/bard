@@ -8,30 +8,16 @@ import shutil
 import bard.hash
 
 #optional stuff
-#from PIL import Image
-#import imagehash
+
 #from pathlib import Path # Python3.5 onward (for progress bar in import)
 #from tqdm import tqdm # progress bar
-#TODO:   Confirm that if a file into the content is interrupted that the corrupted entry is not written.
+#TODO:   Confirm that if a file into the bitwise is interrupted that the corrupted entry is not written.
 #TODO: allow tqdm on import optional otherwise fallback.
 #TODO: allow threading iff filelock is enabled.
 
-IMAGE_EXTENSIONS = [".jpg", ".png", ".jpeg", ".bmp", ".pgm", ".ppm", ".tiff"]
 
-def compute_modhash(path):
-	canonical_device_id=""#TODO: identify_hard_drive_hardware_device_identifier #bard/path_identifier.py ...the windows code isn't finished but I rmemeber it was possible to find one that worked cross platform.
-	canonical_path_in_device = path  #(but remove any leading prefix like "C:" or "/media/steven" and also turn all "\" into "/"]
-	mtime = os.path.getmtime(path)
-	mtime_utc = datetime.datetime.utcfromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-	modstr = canonical_device_id+"|"+canonical_path_in_device+"|"+mtime_utc
-	modhash = bard.hash.secure_hash(modstr.encode('utf-8'))
-	return modhash
 
-def compute_content_hash(f, ext):
-	hash = bard.hash.secure_hash_filepath(f)
-	return hash
-
-### METADATA FUNCTIONS: ONE UNIQUE PER CONTENT HASH
+### METADATA FUNCTIONS: ONE UNIQUE PER data HASH
 def load_metadata(metadatapath):
 	metadata = {}
 	if os.path.exists(metadatapath):
@@ -216,102 +202,12 @@ def ensure_db_dir(dbdir1,makeit):
 			raise Exception("Directory %s does not contain a .bard directory" % (dbdir))
 	return dbdir
 
-
-def import_cmd(args):
-	dbdir=ensure_db_dir(args.db,True)
-
-	for impdir in args.targets:
-		impdir=os.path.abspath(impdir)
-		import_db_dir(dbdir,impdir)
-
-
-def mount_cmd(args):
-	dbdir=ensure_db_dir(args.db,False)
-	create_symlink_file_tree_from_db(dbdir, args.mountdir)
-
-def fingerprint_cmd(args):
-	dbdir=ensure_db_dir(args.db,False)
-	do_fingerprint(dbdir,args.type)
-
-
-def bard_main():
-	parser = argparse.ArgumentParser()
-	base_parser = argparse.ArgumentParser(add_help=False)
-	base_parser.add_argument("--db","-d",type=str,default=os.getcwd(),help="the directory containing the database (.bard) dir")
-	subparsers = parser.add_subparsers(dest="cmd")
-
-	import_parser=subparsers.add_parser('import', help='import files and directories into bard',parents=[base_parser])
-	import_parser.add_argument('targets', type=str,help='the files and folders to import',nargs='+')
-	import_parser.set_defaults(cmdfunc=import_cmd)
-
-	mount_parser=subparsers.add_parser('ln', help='mount bard files into a symlink',parents=[base_parser])
-	mount_parser.add_argument('mountdir', help='The target directory to make a symlink into')
-	mount_parser.set_defaults(cmdfunc=mount_cmd)
-	
-	fingerprint_parser=subparsers.add_parser("fingerprint",help="fingerprint files inside bard based on content",parents=[base_parser])
-	fingerprint_parser.add_argument("--type","-t",action='append',default='all',choices=['all','image'],help="the type of fingerprinting to do")
-	fingerprint_parser.set_defaults(cmdfunc=fingerprint_cmd)
-
-	#parser.add_argument("-f", "--fingerprint", help="compute and store image content hashes to metadata json in bard imported files")
-	args = parser.parse_args()
-	if(args.cmd is None):
-		parser.print_help()
-	else:
-		return args.cmdfunc(args)
-
-
 	
 
-# Future Feature Ideas:
-# Threading w/subprocess
-# Tag inserts to metadata json
-# rolling hash for large files like rsync
-# import archives
-# Windows
-# handle b2sum missing on OS
-# Note: might want to delete OLD version, clear OLD modtime version.  Maybe add a "clean" function?
-# Note: same content hash with different image extension i.e. jpg vs. png. Might want to only have one version.
-
-# Usage: python3 bard.py -i <folder_path>
-# import example: python3 bard.py -i <path_to_directory_to_import>
-# mount example: python3 bard.py -m <local symlink directory to imported bard>
-# fingerprint example: python3 bard.py -f <1, true, some dummy arg here to indicate do it>
-# fingerprint runs image content hash on all bard images and records in metadata json.
-# Can always optionally specify .bard directory with -d
-if __name__ == "__main__":
-	bard_main()
 
 
 
 
-
-########## METADATA EXTENSIONS
-
-
-def compute_image_hash(f, ext):
-# filetypes that aren't images for future consideration:
-# vector: .svg (technically an image type but not pixelized for image hash)
-# videos: .mp4, .webm
-# plaintext: .txt, .csv, .yaml/.yml, .xml, .json, .conf
-# compiled text: .pdf,
-# code: .kdev*, .cpp, .h, .hpp, .c, .cc, .py, .sh, .bat, .m, Makefile/README(.md, .rst), CMakeLists.txt, .git
-# documents: .odt, .xls, .xlxs, .doc, .docx, 
-# latex: .tex, .bib, .aux, .bbl, .bst, .sty
-# web: .html, .css, .php, 
-# types that probably shouldn't be hashed: (.o, .pyc, .a, .so*, .obj)
-# linked exe: .bin, .exe
-# pem: .pem
-# keys: .gpg, .pub
-# disk images: .iso
-# archives: .tar, .tar.gz, .tgz, .zip, .h5
-	if (ext in IMAGE_EXTENSIONS):
-		img = Image.open(f)
-		hash = imagehash.dhash(img)
-		hash = "%s" % hash
-		return hash
-	else:
-		print("not an image!")
-		return 0
 
 
 

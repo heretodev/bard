@@ -100,14 +100,14 @@ else:
  #   raise Exception("MacOSX not supported for partuuid")
     #$ diskutil info /dev/disk0s2 | egrep -om1 "([A-Z0-9]{8}.[A-Z0-9]{4}.+$)"
 
-def compute_modtuple(path):
+def modtuple(path):
 	device_id,truncpath=_device_from_path(path)
 	mtime=os.path.getmtime(path)
 	mtime_utc = datetime.datetime.utcfromtimestamp(mtime).strftime('%Y-%m-%d.%H:%M:%S')
 	return device_id,truncpath,mtime_utc
 
-def compute_modhash(path):
-	device_id,truncpath,mtime_utc=compute_modtuple(path)
+def modhash(path):
+	device_id,truncpath,mtime_utc=modtuple(path)
 	modstr = device_id+"|"+truncpath+"|"+mtime_utc
 	modhash = bard.hash.secure_hash(modstr.encode('utf-8'))
 	return modhash
