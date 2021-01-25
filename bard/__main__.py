@@ -1,3 +1,5 @@
+import argparse
+
 def import_cmd(args):
 	dbdir=ensure_db_dir(args.db,True)
 
@@ -37,5 +39,5 @@ if(__name__=="__main__"):
 	if(args.cmd is None):
 		parser.print_help()
 	else:
-		return args.cmdfunc(args)
+		args.cmdfunc(args)
 
